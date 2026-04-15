@@ -1,0 +1,14 @@
+[
+  {"keyword": "PROPERTY_MANAGER_NAME MGMT TRST", "property": "** ASSIGN PROPERTY **", "category": "Rent", "type": "Income", "note": "Property manager consolidated payment - split across managed properties"},
+  {"keyword": "Zelle payment from TENANT FULL NAME", "property": "123 Main St Anytown CA 90210", "category": "Rent", "type": "Income", "note": "Tenant: Full Name"},
+  {"keyword": "Zelle payment from", "property": "** ASSIGN PROPERTY **", "category": "Rent", "type": "Income", "note": "Unknown tenant - assign property manually"},
+  {"keyword": "Zelle payment to CONTRACTOR NAME", "property": "123 Main St Anytown CA 90210", "category": "Maintenance/Repair", "type": "Expense", "note": "Contractor description"},
+  {"keyword": "Zelle payment to", "property": "** ASSIGN PROPERTY **", "category": "Maintenance/Repair", "type": "Expense", "note": "Outgoing payment - verify category and assign property"},
+  {"keyword": "MORTGAGE_SERVICER DES:LOAN ID:1234567", "property": "123 Main St Anytown CA 90210", "category": "Mortgage - Principal", "type": "Expense", "note": "Mortgage loan ID"},
+  {"keyword": "PROPERTY_MANAGER_NAME CASTLE", "property": "456 Ocean Dr Miami FL 33101", "category": "Rent", "type": "Income", "note": "Property manager - net of management fee"},
+  {"keyword": "HOA_NAME ASSOCIA", "property": "456 Ocean Dr Miami FL 33101", "category": "HOA Fees", "type": "Expense", "note": "HOA dues"},
+  {"keyword": "UTILITY_COMPANY", "property": "** ASSIGN PROPERTY **", "category": "Utilities", "type": "Expense", "note": "Utility bill - assign to correct property"},
+  {"keyword": "INSURANCE_COMPANY", "property": "** ASSIGN PROPERTY **", "category": "Insurance Protection", "type": "Expense", "note": "Insurance premium - assign to correct property"},
+  {"keyword": "COUNTY TAX", "property": "** ASSIGN PROPERTY **", "category": "Property Tax", "type": "Expense", "note": "Property tax payment - assign to correct property"},
+  {"keyword": "WIRE TYPE", "property": "** ASSIGN PROPERTY **", "category": "Rent", "type": "Income", "note": "Wire transfer - only matched if description contains RENT"}
+]

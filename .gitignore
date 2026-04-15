@@ -1,0 +1,28 @@
+# Personal data & credentials — never commit these
+.env
+*.xlsx
+*.xls
+logs/
+sample_bofa.csv
+~$*
+
+# rules.json contains real tenant names, addresses, and account references
+# Use rules.template.json as the committed starting point instead
+rules.json
+
+# macOS launchd scheduler — contains hardcoded local paths
+com.rental.ledger.sync.plist
+~/Library/LaunchAgents/com.rental.ledger.sync.plist
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# macOS
+.DS_Store
