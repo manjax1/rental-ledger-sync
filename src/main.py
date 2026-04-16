@@ -209,7 +209,7 @@ def run_plaid(start_date: date | None = None):
         raise ValueError(f"Unsupported PLAID_ENV value: '{plaid_env}' (expected 'sandbox' or 'production')")
 
     end_date   = date.today()
-    start_date = start_date or (end_date - timedelta(days=5))
+    start_date = start_date or (end_date - timedelta(days=3))
     print(f"Fetching transactions from {start_date} to {end_date}...\n")
     transactions = client.get_transactions(access_token, start_date, end_date)
 
