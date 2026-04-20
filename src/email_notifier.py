@@ -295,7 +295,7 @@ if __name__ == "__main__":
                 "name": "ROCKET MORTGAGE DES:LOAN ID:565163",
                 "amount": 1248.66,
                 "property": "6812 Dalmatian Circle Plano TX 75023",
-                "category": "Mortgage - Principal",
+                "category": "Mortgage - P + I",
                 "type": "Expense",
             },
         ],

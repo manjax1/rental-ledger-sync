@@ -1,0 +1,9 @@
+{
+  "crons": [
+    {
+      "schedule": "0 15 * * *",
+      "command": "python src/main.py",
+      "timezone": "UTC"
+    }
+  ]
+}

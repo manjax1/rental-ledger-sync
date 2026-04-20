@@ -12,6 +12,8 @@ from dotenv import load_dotenv, set_key
 
 _ENV_PATH = Path(__file__).parent.parent / ".env"
 
+_CLOUD_LEDGER_PATH = "/tmp/RentalPropertyLedger.xlsx"
+
 
 def _parse_from_date(value: str) -> date:
     """Validate and parse a YYYY-MM-DD date string, then return a date object."""
@@ -31,7 +33,7 @@ def _parse_from_date(value: str) -> date:
 from csv_importer import load_bofa_csv
 from email_notifier import send_sync_summary
 from filters import filter_rental_transactions
-from ledger_writer import fix_transaction_category, write_transactions
+from ledger_writer import fix_transaction_category, update_mortgage_category_in_ledger, write_transactions
 from link_flow import run_link_flow
 from plaid_client import PlaidClient
 
@@ -157,6 +159,8 @@ def _run_pipeline(transactions: list[dict], ledger_path: Path, token_status: str
     except Exception as e:
         print(f"⚠️  Email notification failed: {e}")
 
+    return summary
+
 
 def run_csv(csv_path: str):
     """Load transactions from a BofA CSV export and run the pipeline."""
@@ -167,14 +171,33 @@ def run_csv(csv_path: str):
     _run_pipeline(transactions, ledger_path)
 
 
-def run_plaid(start_date: date | None = None):
-    """Fetch transactions via Plaid and run the pipeline. Supports sandbox and production."""
+def run_sync(from_date: str | date | None = None):
+    """
+    Fetch transactions via Plaid and sync to ledger.
+
+    In cloud mode (RAILWAY_ENVIRONMENT set): downloads ledger from Google Drive
+    before sync, uploads it back after. In local mode: uses LEDGER_FILE_PATH from .env.
+
+    from_date may be a YYYY-MM-DD string, a date object, or None (defaults to 3 days ago).
+    """
     load_dotenv(_ENV_PATH)
+
+    is_cloud = bool(os.getenv("RAILWAY_ENVIRONMENT"))
+
+    if is_cloud:
+        from drive_sync import download_ledger, upload_ledger
+        file_id     = os.environ["GOOGLE_DRIVE_FILE_ID"]
+        ledger_path = Path(_CLOUD_LEDGER_PATH)
+        print(f"☁️  Cloud mode — downloading ledger from Google Drive (file_id={file_id})")
+        download_ledger(file_id, str(ledger_path))
+    else:
+        ledger_path = Path(__file__).resolve().parent.parent / os.environ.get("LEDGER_FILE_PATH", "ledger.xlsx")
 
     plaid_env = os.getenv("PLAID_ENV", "sandbox").lower()
     print(f"🔗 Running in {plaid_env.upper()} mode")
 
-    client = PlaidClient()
+    client       = PlaidClient()
+    token_status = None
 
     if plaid_env == "sandbox":
         print("Obtaining sandbox access token...")
@@ -184,7 +207,6 @@ def run_plaid(start_date: date | None = None):
 
     elif plaid_env == "production":
         access_token = os.getenv("PLAID_ACCESS_TOKEN", "").strip()
-        token_status = None
 
         if not access_token:
             print("No PLAID_ACCESS_TOKEN found — launching Plaid Link browser flow...")
@@ -208,14 +230,28 @@ def run_plaid(start_date: date | None = None):
     else:
         raise ValueError(f"Unsupported PLAID_ENV value: '{plaid_env}' (expected 'sandbox' or 'production')")
 
-    end_date   = date.today()
-    start_date = start_date or (end_date - timedelta(days=3))
+    end_date = date.today()
+    if from_date is None:
+        start_date = end_date - timedelta(days=3)
+    elif isinstance(from_date, str):
+        start_date = _parse_from_date(from_date)
+    else:
+        start_date = from_date
+
     print(f"Fetching transactions from {start_date} to {end_date}...\n")
     transactions = client.get_transactions(access_token, start_date, end_date)
 
-    ledger_path = Path(__file__).resolve().parent.parent / os.environ.get("LEDGER_FILE_PATH", "ledger.xlsx")
     token_status = token_status if plaid_env == "production" else None
     _run_pipeline(transactions, ledger_path, token_status)
+
+    if is_cloud:
+        print("☁️  Uploading updated ledger to Google Drive...")
+        upload_ledger(file_id, str(ledger_path))
+
+
+# Keep run_plaid as a local-only alias for backwards compatibility
+def run_plaid(start_date: date | None = None):
+    run_sync(from_date=start_date)
 
 
 if __name__ == "__main__":
@@ -228,7 +264,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--from-date",
         metavar="YYYY-MM-DD",
-        help="Start date for fetching transactions (default: 5 days ago). Ignored when --csv is used.",
+        help="Start date for fetching transactions (default: 3 days ago). Ignored when --csv is used.",
     )
     parser.add_argument(
         "--fix-category",
@@ -238,7 +274,25 @@ if __name__ == "__main__":
             "(2026-04-14, $2350.00) from 'Rent' to 'Security Deposit', then exit."
         ),
     )
+    parser.add_argument(
+        "--update-mortgage-category",
+        action="store_true",
+        help=(
+            "One-time fix: rename 'Mortgage - Principal' → 'Mortgage - P + I' "
+            "in the Categories sheet and all Ledger rows, then exit."
+        ),
+    )
     args = parser.parse_args()
+
+    if args.update_mortgage_category:
+        load_dotenv(_ENV_PATH)
+        ledger_path = Path(__file__).resolve().parent.parent / os.environ.get("LEDGER_FILE_PATH", "ledger.xlsx")
+        try:
+            update_mortgage_category_in_ledger(str(ledger_path))
+        except Exception as e:
+            print(f"❌ update-mortgage-category failed: {e}")
+            raise SystemExit(1)
+        raise SystemExit(0)
 
     if args.fix_category:
         load_dotenv(_ENV_PATH)
@@ -261,4 +315,4 @@ if __name__ == "__main__":
     if args.csv:
         run_csv(args.csv)
     else:
-        run_plaid(start_date=from_date)
+        run_sync(from_date=from_date)

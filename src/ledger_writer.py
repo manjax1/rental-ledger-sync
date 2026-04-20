@@ -172,6 +172,47 @@ def write_transactions(matched_transactions: list[dict], ledger_file_path: str) 
     }
 
 
+def update_mortgage_category_in_ledger(ledger_path: str) -> None:
+    """
+    One-time migration: rename "Mortgage - Principal" → "Mortgage - P + I"
+    in the hidden Categories sheet and all Ledger rows (col F).
+    """
+    OLD = "Mortgage - Principal"
+    NEW = "Mortgage - P + I"
+
+    path = Path(ledger_path)
+    wb   = load_workbook(path)
+
+    # --- Categories sheet ---
+    categories_updated = False
+    if "Categories" in wb.sheetnames:
+        ws_cat = wb["Categories"]
+        for row in ws_cat.iter_rows():
+            for cell in row:
+                if cell.value == OLD:
+                    cell.value = NEW
+                    categories_updated = True
+
+    # --- Ledger sheet ---
+    if _SHEET_NAME not in wb.sheetnames:
+        raise ValueError(f"Sheet '{_SHEET_NAME}' not found in {path}")
+    ws      = wb[_SHEET_NAME]
+    updated = 0
+    for row in range(_DATA_START_ROW, ws.max_row + 1):
+        cell = ws.cell(row=row, column=_COL_CATEGORY)
+        if cell.value == OLD:
+            cell.value = NEW
+            updated += 1
+
+    wb.save(path)
+
+    if categories_updated:
+        print(f"✅ Updated Categories sheet: {OLD} → {NEW}")
+    else:
+        print(f"⚠️  '{OLD}' not found in Categories sheet (may already be updated)")
+    print(f"✅ Updated {updated} ledger rows with new mortgage category")
+
+
 def fix_transaction_category(
     ledger_path: str,
     date_str: str,

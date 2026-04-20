@@ -26,3 +26,12 @@ build/
 
 # macOS
 .DS_Store
+
+# Google service account key — never commit
+service-account*.json
+
+# Railway/cloud temp files
+/tmp/
+rental-ledger-sync-*.json
+service-account*.json
+*-3e1e9f6abfe6.json
