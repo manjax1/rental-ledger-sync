@@ -2,6 +2,7 @@ import os
 import sys
 import threading
 import warnings
+import zoneinfo
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -22,6 +23,19 @@ sync_lock   = threading.Lock()
 sync_status = {"running": False, "last_run": None, "last_result": None}
 
 
+def _get_local_time() -> datetime:
+    tz_name = os.getenv("TZ", "UTC")
+    try:
+        tz = zoneinfo.ZoneInfo(tz_name)
+    except Exception:
+        tz = timezone.utc
+    return datetime.now(tz)
+
+
+def _format_dt(dt: datetime) -> str:
+    return dt.strftime("%B %d, %Y at %I:%M %p %Z")
+
+
 def _run_sync_thread(from_date=None):
     import traceback
     sys.path.insert(0, os.path.dirname(__file__))
@@ -30,7 +44,7 @@ def _run_sync_thread(from_date=None):
         from main import run_sync
         result = run_sync(from_date=from_date)
         sync_status["last_result"] = result
-        sync_status["last_run"]    = datetime.now(timezone.utc).strftime("%B %d, %Y at %I:%M %p UTC")
+        sync_status["last_run"]    = _format_dt(_get_local_time())
         print("✅ Sync completed successfully")
     except Exception as e:
         print(f"❌ Sync error: {e}")
@@ -50,7 +64,7 @@ def health():
         "status":       "healthy",
         "service":      "rental-ledger-sync",
         "environment":  os.getenv("RAILWAY_ENVIRONMENT", "local"),
-        "timestamp":    datetime.now(timezone.utc).strftime("%B %d, %Y at %I:%M %p UTC"),
+        "timestamp":    _format_dt(_get_local_time()),
         "sync_running": sync_status["running"],
         "last_run":     sync_status["last_run"],
     })
