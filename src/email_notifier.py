@@ -3,9 +3,12 @@ Gmail SMTP email notifier for daily rental ledger sync summaries.
 smtplib and email are Python standard library modules — no pip install needed.
 """
 
+import json as jsonlib
 import os
 import smtplib
 import time
+import urllib.error
+import urllib.request
 import warnings
 from datetime import date, datetime
 from email.mime.multipart import MIMEMultipart
@@ -139,20 +142,50 @@ def _build_manual_section(transactions: list[dict]) -> str:
     )
 
 
+def _send_via_sendgrid(sender: str, recipient: str, subject: str, html_body: str, api_key: str) -> int:
+    payload = {
+        "personalizations": [{"to": [{"email": recipient}]}],
+        "from":    {"email": sender},
+        "subject": subject,
+        "content": [{"type": "text/html", "value": html_body}],
+    }
+    data = jsonlib.dumps(payload).encode("utf-8")
+    req  = urllib.request.Request(
+        "https://api.sendgrid.com/v3/mail/send",
+        data=data,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type":  "application/json",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req) as response:
+        return response.status
+
+
 def send_sync_summary(summary: dict):
     """
-    Send an HTML sync summary email via Gmail SMTP.
+    Send an HTML sync summary email.
 
-    Required .env keys: EMAIL_SENDER, EMAIL_APP_PASSWORD, EMAIL_RECIPIENT
-    If any are missing or empty, prints a warning and returns without raising.
+    Uses SendGrid HTTP API if SENDGRID_API_KEY is set (recommended for Railway).
+    Falls back to Gmail SMTP (port 587 + STARTTLS) for local use.
+
+    Required .env keys: EMAIL_SENDER, EMAIL_RECIPIENT
+    SendGrid:  SENDGRID_API_KEY
+    Gmail:     EMAIL_APP_PASSWORD
     """
     load_dotenv(_ENV_PATH, override=True)
 
     sender       = os.getenv("EMAIL_SENDER", "").strip()
-    app_password = os.getenv("EMAIL_APP_PASSWORD", "").strip()
     recipient    = os.getenv("EMAIL_RECIPIENT", "").strip()
+    sendgrid_key = os.getenv("SENDGRID_API_KEY", "").strip()
+    app_password = os.getenv("EMAIL_APP_PASSWORD", "").strip()
 
-    if not all([sender, app_password, recipient]):
+    if not all([sender, recipient]):
+        print("⚠️  Email not configured - skipping notification")
+        return
+
+    if not sendgrid_key and not app_password:
         print("⚠️  Email not configured - skipping notification")
         return
 
@@ -262,12 +295,17 @@ def send_sync_summary(summary: dict):
 
     for attempt in range(1, max_retries + 1):
         try:
-            with smtplib.SMTP("smtp.gmail.com", 587) as server:
-                server.ehlo()
-                server.starttls()
-                server.ehlo()
-                server.login(sender, app_password)
-                server.sendmail(sender, recipient, msg.as_string())
+            if sendgrid_key:
+                print(f"📧 Sending via SendGrid...")
+                _send_via_sendgrid(sender, recipient, subject, html_body, sendgrid_key)
+            else:
+                print(f"📧 Sending via Gmail SMTP...")
+                with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                    server.ehlo()
+                    server.starttls()
+                    server.ehlo()
+                    server.login(sender, app_password)
+                    server.sendmail(sender, recipient, msg.as_string())
             print(f"✅ Summary email sent to {recipient}")
             return
         except Exception as e:
