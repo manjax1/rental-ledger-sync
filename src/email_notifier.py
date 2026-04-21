@@ -187,6 +187,7 @@ def send_sync_summary(summary: dict):
     SendGrid:  SENDGRID_API_KEY
     Gmail:     EMAIL_APP_PASSWORD
     """
+    print("📧 Email notifier called")
     load_dotenv(_ENV_PATH, override=True)
 
     sender       = os.getenv("EMAIL_SENDER", "").strip()
@@ -194,8 +195,10 @@ def send_sync_summary(summary: dict):
     sendgrid_key = os.getenv("SENDGRID_API_KEY", "").strip()
     app_password = os.getenv("EMAIL_APP_PASSWORD", "").strip()
 
-    if not all([sender, recipient]):
-        print("⚠️  Email not configured - skipping notification")
+    print(f"📧 sender={sender or 'NOT SET'}, recipient={recipient or 'NOT SET'}, sendgrid_key={'set' if sendgrid_key else 'NOT SET'}, gmail_pass={'set' if app_password else 'NOT SET'}")
+
+    if not sender or not recipient:
+        print("⚠️  Email not configured - EMAIL_SENDER or EMAIL_RECIPIENT missing")
         return
 
     if not sendgrid_key and not app_password:

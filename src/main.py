@@ -5,8 +5,11 @@ Pulls Bank of America transactions via Plaid and writes them to an Excel ledger.
 
 import argparse
 import os
+import warnings
 from datetime import date, datetime, timedelta
 from pathlib import Path
+
+warnings.filterwarnings("ignore")
 
 from dotenv import load_dotenv, set_key
 
@@ -157,14 +160,16 @@ def _run_pipeline(transactions: list[dict], ledger_path: Path, token_status: str
     try:
         send_sync_summary(summary)
     except Exception as e:
-        print(f"⚠️  Email notification failed: {e}")
+        import traceback
+        print(f"❌ Email notification failed: {e}")
+        print(traceback.format_exc())
 
     return summary
 
 
 def run_csv(csv_path: str):
     """Load transactions from a BofA CSV export and run the pipeline."""
-    load_dotenv(_ENV_PATH)
+    load_dotenv(_ENV_PATH, override=True)
     transactions = load_bofa_csv(csv_path)
     ledger_path  = Path(__file__).resolve().parent.parent / os.environ.get("LEDGER_FILE_PATH", "ledger.xlsx")
     print()
@@ -180,7 +185,12 @@ def run_sync(from_date: str | date | None = None):
 
     from_date may be a YYYY-MM-DD string, a date object, or None (defaults to 3 days ago).
     """
-    load_dotenv(_ENV_PATH)
+    load_dotenv(_ENV_PATH, override=True)
+
+    from filters import _load_rules
+    if not _load_rules():
+        print("❌ No rules loaded - sync aborted")
+        return {"error": "rules.json not found", "added": 0, "skipped": 0}
 
     is_cloud = bool(os.getenv("RAILWAY_ENVIRONMENT"))
 
@@ -242,11 +252,13 @@ def run_sync(from_date: str | date | None = None):
     transactions = client.get_transactions(access_token, start_date, end_date)
 
     token_status = token_status if plaid_env == "production" else None
-    _run_pipeline(transactions, ledger_path, token_status)
+    summary = _run_pipeline(transactions, ledger_path, token_status)
 
     if is_cloud:
         print("☁️  Uploading updated ledger to Google Drive...")
         upload_ledger(file_id, str(ledger_path))
+
+    return summary
 
 
 # Keep run_plaid as a local-only alias for backwards compatibility
@@ -285,7 +297,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.update_mortgage_category:
-        load_dotenv(_ENV_PATH)
+        load_dotenv(_ENV_PATH, override=True)
         ledger_path = Path(__file__).resolve().parent.parent / os.environ.get("LEDGER_FILE_PATH", "ledger.xlsx")
         try:
             update_mortgage_category_in_ledger(str(ledger_path))
@@ -295,7 +307,7 @@ if __name__ == "__main__":
         raise SystemExit(0)
 
     if args.fix_category:
-        load_dotenv(_ENV_PATH)
+        load_dotenv(_ENV_PATH, override=True)
         ledger_path = Path(__file__).resolve().parent.parent / os.environ.get("LEDGER_FILE_PATH", "ledger.xlsx")
         try:
             fix_transaction_category(
