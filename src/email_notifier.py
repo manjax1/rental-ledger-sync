@@ -159,8 +159,21 @@ def _send_via_sendgrid(sender: str, recipient: str, subject: str, html_body: str
         },
         method="POST",
     )
-    with urllib.request.urlopen(req) as response:
-        return response.status
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            status = response.status
+            print(f"📧 SendGrid response status: {status}")
+            return status
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8")
+        print(f"❌ SendGrid HTTP error {e.code}: {body}")
+        raise
+    except urllib.error.URLError as e:
+        print(f"❌ SendGrid URL error: {e.reason}")
+        raise
+    except Exception as e:
+        print(f"❌ SendGrid unexpected error: {e}")
+        raise
 
 
 def send_sync_summary(summary: dict):
