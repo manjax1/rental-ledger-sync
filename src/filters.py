@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 _RULES_PATH = Path(__file__).resolve().parent.parent / "rules.json"
@@ -62,10 +63,20 @@ _AMOUNT_MAP_BY_KEYWORD: dict[str, dict[float, str]] = {
 
 
 def _load_rules() -> list[dict]:
-    if not _RULES_PATH.exists():
-        raise FileNotFoundError(f"Rules file not found: {_RULES_PATH}")
-    with _RULES_PATH.open() as f:
-        rules = json.load(f)
+    rules_json = os.getenv("RULES_JSON")
+    if rules_json:
+        rules = json.loads(rules_json)
+        print(f"✅ Loaded {len(rules)} rules from RULES_JSON environment variable")
+    else:
+        rules_path = _RULES_PATH
+        try:
+            with open(rules_path) as f:
+                rules = json.load(f)
+            print(f"✅ Loaded {len(rules)} rules from {rules_path}")
+        except FileNotFoundError:
+            print(f"❌ CRITICAL: rules.json not found at {rules_path}")
+            print("   On Railway: add RULES_JSON environment variable or commit rules.json")
+            return []
     # Longer keywords are more specific and must be evaluated before shorter ones
     # e.g. "ROCKET MORTGAGE DES:LOAN ID:565163" wins over "ROCKET MORTGAGE"
     return sorted(rules, key=lambda r: len(r["keyword"]), reverse=True)
