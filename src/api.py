@@ -1,14 +1,17 @@
 import os
 import sys
 import threading
+import warnings
 from datetime import datetime, timezone
 from pathlib import Path
+
+warnings.filterwarnings("ignore")
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 
 ENV_PATH = Path(__file__).parent.parent / ".env"
-load_dotenv(ENV_PATH)
+load_dotenv(ENV_PATH, override=True)
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -20,16 +23,25 @@ sync_status = {"running": False, "last_run": None, "last_result": None}
 
 
 def _run_sync_thread(from_date=None):
+    import traceback
+    sys.path.insert(0, os.path.dirname(__file__))
     try:
         sync_status["running"] = True
-        result = sync_main.run_sync(from_date=from_date)
+        from main import run_sync
+        result = run_sync(from_date=from_date)
         sync_status["last_result"] = result
-        sync_status["last_run"]    = datetime.now(timezone.utc).isoformat()
+        sync_status["last_run"]    = datetime.now(timezone.utc).strftime("%B %d, %Y at %I:%M %p UTC")
+        print("✅ Sync completed successfully")
     except Exception as e:
+        print(f"❌ Sync error: {e}")
+        traceback.print_exc()
         sync_status["last_result"] = {"error": str(e)}
     finally:
         sync_status["running"] = False
-        sync_lock.release()
+        try:
+            sync_lock.release()
+        except RuntimeError:
+            pass
 
 
 @app.route("/health", methods=["GET"])
@@ -38,7 +50,7 @@ def health():
         "status":       "healthy",
         "service":      "rental-ledger-sync",
         "environment":  os.getenv("RAILWAY_ENVIRONMENT", "local"),
-        "timestamp":    datetime.now(timezone.utc).isoformat(),
+        "timestamp":    datetime.now(timezone.utc).strftime("%B %d, %Y at %I:%M %p UTC"),
         "sync_running": sync_status["running"],
         "last_run":     sync_status["last_run"],
     })
@@ -49,10 +61,14 @@ def sync():
     if not sync_lock.acquire(blocking=False):
         return jsonify({"status": "busy", "message": "Sync already in progress"}), 409
 
-    from_date = request.get_json(silent=True).get("from_date") if request.is_json else None
+    from_date = (request.get_json(silent=True) or {}).get("from_date")
 
-    thread = threading.Thread(target=_run_sync_thread, args=(from_date,), daemon=True)
-    thread.start()
+    try:
+        thread = threading.Thread(target=_run_sync_thread, args=(from_date,), daemon=True)
+        thread.start()
+    except Exception as e:
+        sync_lock.release()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
     return jsonify({
         "status":    "started",
