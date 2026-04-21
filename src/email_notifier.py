@@ -6,10 +6,13 @@ smtplib and email are Python standard library modules — no pip install needed.
 import os
 import smtplib
 import time
+import warnings
 from datetime import date, datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
+
+warnings.filterwarnings("ignore")
 
 from dotenv import load_dotenv
 
@@ -143,7 +146,7 @@ def send_sync_summary(summary: dict):
     Required .env keys: EMAIL_SENDER, EMAIL_APP_PASSWORD, EMAIL_RECIPIENT
     If any are missing or empty, prints a warning and returns without raising.
     """
-    load_dotenv(_ENV_PATH)
+    load_dotenv(_ENV_PATH, override=True)
 
     sender       = os.getenv("EMAIL_SENDER", "").strip()
     app_password = os.getenv("EMAIL_APP_PASSWORD", "").strip()
@@ -259,7 +262,10 @@ def send_sync_summary(summary: dict):
 
     for attempt in range(1, max_retries + 1):
         try:
-            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
                 server.login(sender, app_password)
                 server.sendmail(sender, recipient, msg.as_string())
             print(f"✅ Summary email sent to {recipient}")
