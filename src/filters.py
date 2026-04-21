@@ -95,6 +95,39 @@ def _resolve_amount_based(txn: dict, matched_rule: dict) -> tuple[str, bool]:
     return property_val, needs_assignment
 
 
+def match_truncated_zelle(transaction_name: str, rules: list[dict]) -> dict | None:
+    """
+    Handle BofA's truncated Zelle format: "Zelle Transfer Conf# XXXXXXX; XX..."
+
+    BofA sometimes truncates the sender name to just 2–3 characters after a semicolon.
+    This function extracts that partial name and checks whether it is a prefix of any
+    known tenant name in the "Zelle payment from" rules.
+
+    Returns the matching rule dict if found, otherwise None.
+    """
+    prefix = "zelle transfer conf#"
+    if not transaction_name.lower().startswith(prefix):
+        return None
+
+    # Extract partial name after the semicolon, e.g. "Zelle Transfer Conf# 99CDW75D0; ME" → "ME"
+    semicolon_pos = transaction_name.find(";")
+    if semicolon_pos == -1:
+        return None
+    partial = transaction_name[semicolon_pos + 1:].strip().lower()
+    if not partial:
+        return None
+
+    for rule in rules:
+        kw = rule["keyword"]
+        if not kw.lower().startswith("zelle payment from "):
+            continue
+        tenant_name = kw[len("Zelle payment from "):].strip().lower()
+        if tenant_name.startswith(partial):
+            return rule
+
+    return None
+
+
 def filter_rental_transactions(transactions: list[dict]) -> list[dict]:
     """
     Match each transaction against rules loaded from rules.json.
@@ -131,12 +164,15 @@ def filter_rental_transactions(transactions: list[dict]) -> list[dict]:
         if "wire type" in name_lower and "rent" not in name_lower:
             continue
 
+        # --- Truncated Zelle: "Zelle Transfer Conf# XXX; ME..." → match by partial name ---
+        matched_rule = match_truncated_zelle(name, rules)
+
         # --- Find first matching rule (longest keyword wins due to pre-sort) ---
-        matched_rule = None
-        for rule in rules:
-            if rule["keyword"].lower() in name_lower:
-                matched_rule = rule
-                break
+        if matched_rule is None:
+            for rule in rules:
+                if rule["keyword"].lower() in name_lower:
+                    matched_rule = rule
+                    break
 
         if matched_rule is None:
             continue
