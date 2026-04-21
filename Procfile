@@ -1,1 +1,1 @@
-web: python3.11 -m gunicorn src.api:app --bind 0.0.0.0:$PORT --workers 1 --timeout 300
+web: gunicorn --bind "0.0.0.0:${PORT:-8080}" --workers 1 --timeout 300 src.api:app
