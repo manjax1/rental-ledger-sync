@@ -19,6 +19,8 @@ warnings.filterwarnings("ignore")
 
 from dotenv import load_dotenv
 
+from utils import clean_env
+
 _ENV_PATH = Path(__file__).parent.parent / ".env"
 
 
@@ -192,8 +194,8 @@ def send_sync_summary(summary: dict):
 
     sender       = os.getenv("EMAIL_SENDER", "").strip()
     recipient    = os.getenv("EMAIL_RECIPIENT", "").strip()
-    sendgrid_key = os.getenv("SENDGRID_API_KEY", "").strip()
-    app_password = os.getenv("EMAIL_APP_PASSWORD", "").strip()
+    sendgrid_key = clean_env(os.getenv("SENDGRID_API_KEY", ""))
+    app_password = clean_env(os.getenv("EMAIL_APP_PASSWORD", ""))
 
     print(f"📧 sender={sender or 'NOT SET'}, recipient={recipient or 'NOT SET'}, sendgrid_key={'set' if sendgrid_key else 'NOT SET'}, gmail_pass={'set' if app_password else 'NOT SET'}")
 

@@ -1,8 +1,12 @@
 import json
 import os
 import time
+import warnings
 from datetime import date
 from pathlib import Path
+
+warnings.filterwarnings("ignore")
+
 from dotenv import load_dotenv
 import plaid
 from plaid.api import plaid_api
@@ -19,8 +23,10 @@ from plaid.model.transactions_get_request_options import TransactionsGetRequestO
 from plaid.model.country_code import CountryCode
 from plaid.model.products import Products
 
+from utils import clean_env
+
 _ENV_PATH = Path(__file__).parent.parent / ".env"
-load_dotenv(_ENV_PATH)
+load_dotenv(_ENV_PATH, override=True)
 
 
 class PlaidClient:
@@ -36,8 +42,8 @@ class PlaidClient:
         configuration = plaid.Configuration(
             host=host,
             api_key={
-                "clientId": os.environ["PLAID_CLIENT_ID"],
-                "secret": os.environ["PLAID_SECRET"],
+                "clientId": clean_env(os.getenv("PLAID_CLIENT_ID", "")),
+                "secret":   clean_env(os.getenv("PLAID_SECRET", "")),
             },
         )
         self._client = plaid_api.PlaidApi(plaid.ApiClient(configuration))

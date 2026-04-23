@@ -6,11 +6,13 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 
+from utils import clean_env
+
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 
 def get_drive_service():
-    json_str = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+    json_str = clean_env(os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", ""))
     if not json_str:
         raise ValueError("GOOGLE_SERVICE_ACCOUNT_JSON environment variable not set")
     info  = json.loads(json_str)

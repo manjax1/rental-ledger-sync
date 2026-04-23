@@ -39,6 +39,7 @@ from filters import filter_rental_transactions
 from ledger_writer import fix_transaction_category, update_mortgage_category_in_ledger, write_transactions
 from link_flow import run_link_flow
 from plaid_client import PlaidClient
+from utils import clean_env
 
 # Column widths shared across print tables
 _W_DATE     = 12
@@ -196,7 +197,7 @@ def run_sync(from_date: str | date | None = None):
 
     if is_cloud:
         from drive_sync import download_ledger, upload_ledger
-        file_id     = os.environ["GOOGLE_DRIVE_FILE_ID"]
+        file_id     = clean_env(os.environ["GOOGLE_DRIVE_FILE_ID"])
         ledger_path = Path(_CLOUD_LEDGER_PATH)
         print(f"☁️  Cloud mode — downloading ledger from Google Drive (file_id={file_id})")
         download_ledger(file_id, str(ledger_path))
@@ -216,7 +217,7 @@ def run_sync(from_date: str | date | None = None):
         print(f"Saved PLAID_ACCESS_TOKEN to {_ENV_PATH.name}")
 
     elif plaid_env == "production":
-        access_token = os.getenv("PLAID_ACCESS_TOKEN", "").strip()
+        access_token = clean_env(os.getenv("PLAID_ACCESS_TOKEN", ""))
 
         if not access_token:
             print("No PLAID_ACCESS_TOKEN found — launching Plaid Link browser flow...")
