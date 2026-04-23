@@ -9,6 +9,4 @@ def clean_env(value: str | None, name: str = "") -> str:
         (value.startswith('"') and value.endswith('"'))
     ):
         value = value[1:-1]
-        label = f" {name}" if name else ""
-        print(f"🔍 Stripped quotes from{label}: was {len(original)} chars, now {len(value)} chars")
     return value

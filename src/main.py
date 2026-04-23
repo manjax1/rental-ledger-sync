@@ -186,17 +186,6 @@ def run_sync(from_date: str | date | None = None):
 
     from_date may be a YYYY-MM-DD string, a date object, or None (defaults to 3 days ago).
     """
-    print("🔍 Environment check:")
-    print(f"   PLAID_CLIENT_ID: {'SET (len=' + str(len(os.getenv('PLAID_CLIENT_ID', ''))) + ')' if os.getenv('PLAID_CLIENT_ID') else 'MISSING'}")
-    print(f"   PLAID_SECRET: {'SET' if os.getenv('PLAID_SECRET') else 'MISSING'}")
-    print(f"   PLAID_ACCESS_TOKEN: {'SET' if os.getenv('PLAID_ACCESS_TOKEN') else 'MISSING'}")
-    print(f"   PLAID_ENV: {os.getenv('PLAID_ENV', 'MISSING')}")
-    print(f"   RULES_JSON: {'SET' if os.getenv('RULES_JSON') else 'MISSING'}")
-    print(f"   GOOGLE_DRIVE_FILE_ID: {'SET' if os.getenv('GOOGLE_DRIVE_FILE_ID') else 'MISSING'}")
-    print(f"   GOOGLE_SERVICE_ACCOUNT_JSON: {'SET' if os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON') else 'MISSING'}")
-    print(f"   EMAIL_SENDER: {os.getenv('EMAIL_SENDER', 'MISSING')}")
-    print(f"   SENDGRID_API_KEY: {'SET' if os.getenv('SENDGRID_API_KEY') else 'MISSING'}")
-
     load_dotenv(_ENV_PATH, override=True)
 
     from filters import _load_rules
