@@ -10,5 +10,5 @@ COPY . .
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
-ENTRYPOINT ["/bin/bash", "-c"]
-CMD ["gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 1 --timeout 300 src.api:app"]
+# Default command for web service - overridden by cron service Start Command
+CMD ["/bin/bash", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 1 --timeout 300 src.api:app"]
