@@ -194,8 +194,8 @@ def send_sync_summary(summary: dict):
 
     sender       = os.getenv("EMAIL_SENDER", "").strip()
     recipient    = os.getenv("EMAIL_RECIPIENT", "").strip()
-    sendgrid_key = clean_env(os.getenv("SENDGRID_API_KEY", ""))
-    app_password = clean_env(os.getenv("EMAIL_APP_PASSWORD", ""))
+    sendgrid_key = clean_env(os.getenv("SENDGRID_API_KEY", ""), "SENDGRID_API_KEY")
+    app_password = clean_env(os.getenv("EMAIL_APP_PASSWORD", ""), "EMAIL_APP_PASSWORD")
 
     print(f"📧 sender={sender or 'NOT SET'}, recipient={recipient or 'NOT SET'}, sendgrid_key={'set' if sendgrid_key else 'NOT SET'}, gmail_pass={'set' if app_password else 'NOT SET'}")
 

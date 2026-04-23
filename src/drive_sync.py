@@ -12,7 +12,7 @@ SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 
 def get_drive_service():
-    json_str = clean_env(os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", ""))
+    json_str = clean_env(os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", ""), "GOOGLE_SERVICE_ACCOUNT_JSON")
     if not json_str:
         raise ValueError("GOOGLE_SERVICE_ACCOUNT_JSON environment variable not set")
     info  = json.loads(json_str)

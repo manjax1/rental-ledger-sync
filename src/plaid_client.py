@@ -37,13 +37,19 @@ class PlaidClient:
     }
 
     def __init__(self):
+        client_id = clean_env(os.getenv("PLAID_CLIENT_ID", ""), "PLAID_CLIENT_ID")
+        secret    = clean_env(os.getenv("PLAID_SECRET", ""), "PLAID_SECRET")
+        print(f"🔍 PLAID_CLIENT_ID length: {len(client_id)}, first4: '{client_id[:4]}', last4: '{client_id[-4:]}'")
+        print(f"🔍 PLAID_SECRET length: {len(secret)}, first4: '{secret[:4]}'")
+        print(f"🔍 PLAID_ENV: '{os.getenv('PLAID_ENV')}'")
+
         self.env = os.getenv("PLAID_ENV", "sandbox").lower()
         host = self._ENV_MAP.get(self.env, "https://sandbox.plaid.com")
         configuration = plaid.Configuration(
             host=host,
             api_key={
-                "clientId": clean_env(os.getenv("PLAID_CLIENT_ID", "")),
-                "secret":   clean_env(os.getenv("PLAID_SECRET", "")),
+                "clientId": client_id,
+                "secret":   secret,
             },
         )
         self._client = plaid_api.PlaidApi(plaid.ApiClient(configuration))
