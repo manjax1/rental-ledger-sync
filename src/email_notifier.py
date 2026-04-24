@@ -219,7 +219,7 @@ def send_sync_summary(summary: dict):
     run_datetime       = summary.get("run_datetime", datetime.now().strftime("%B %d, %Y at %I:%M %p"))
 
     today_str = date.today().strftime("%B %d, %Y")
-    subject   = f"🏠 Rental Ledger Sync — {today_str} | {added} added, {manual} need review"
+    subject   = f"🏠 Daily Property Update — {today_str}"
 
     if token_status == "valid":
         token_css, token_icon, token_status_text = "token-valid", "✅", "Valid (reused)"
