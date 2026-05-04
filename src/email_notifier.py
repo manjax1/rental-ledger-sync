@@ -144,38 +144,25 @@ def _build_manual_section(transactions: list[dict]) -> str:
     )
 
 
-def _send_via_resend(recipient: str, subject: str, html_body: str, api_key: str) -> dict:
-    payload = {
-        "from":    "Rental Ledger Sync <onboarding@resend.dev>",
-        "to":      [recipient],
-        "subject": subject,
-        "html":    html_body,
-    }
-    data = jsonlib.dumps(payload).encode("utf-8")
-    req  = urllib.request.Request(
+def _send_via_resend(recipient: str, subject: str, html_body: str, api_key: str, sender: str) -> dict:
+    import requests
+    response = requests.post(
         "https://api.resend.com/emails",
-        data=data,
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type":  "application/json",
         },
-        method="POST",
+        json={
+            "from":    f"Rental Ledger Sync <{sender}>",
+            "to":      [recipient],
+            "subject": subject,
+            "html":    html_body,
+        },
+        timeout=30,
     )
-    try:
-        with urllib.request.urlopen(req, timeout=30) as response:
-            result = jsonlib.loads(response.read())
-            print(f"📧 Resend response: {result}")
-            return result
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8")
-        print(f"❌ Resend HTTP error {e.code}: {body}")
-        raise
-    except urllib.error.URLError as e:
-        print(f"❌ Resend URL error: {e.reason}")
-        raise
-    except Exception as e:
-        print(f"❌ Resend unexpected error: {e}")
-        raise
+    print(f"📧 Resend response: {response.status_code} {response.text}")
+    response.raise_for_status()
+    return response.json()
 
 
 def _send_via_sendgrid(sender: str, recipient: str, subject: str, html_body: str, api_key: str) -> int:
@@ -346,7 +333,7 @@ def send_sync_summary(summary: dict):
     if resend_key:
         try:
             print("📧 Sending via Resend...")
-            _send_via_resend(recipient, subject, html_body, resend_key)
+            _send_via_resend(recipient, subject, html_body, resend_key, sender)
             print(f"✅ Summary email sent via Resend to {recipient}")
             return
         except Exception as e:
