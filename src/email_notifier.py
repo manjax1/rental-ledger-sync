@@ -144,6 +144,40 @@ def _build_manual_section(transactions: list[dict]) -> str:
     )
 
 
+def _send_via_resend(recipient: str, subject: str, html_body: str, api_key: str) -> dict:
+    payload = {
+        "from":    "Rental Ledger Sync <onboarding@resend.dev>",
+        "to":      [recipient],
+        "subject": subject,
+        "html":    html_body,
+    }
+    data = jsonlib.dumps(payload).encode("utf-8")
+    req  = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=data,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type":  "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            result = jsonlib.loads(response.read())
+            print(f"📧 Resend response: {result}")
+            return result
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8")
+        print(f"❌ Resend HTTP error {e.code}: {body}")
+        raise
+    except urllib.error.URLError as e:
+        print(f"❌ Resend URL error: {e.reason}")
+        raise
+    except Exception as e:
+        print(f"❌ Resend unexpected error: {e}")
+        raise
+
+
 def _send_via_sendgrid(sender: str, recipient: str, subject: str, html_body: str, api_key: str) -> int:
     payload = {
         "personalizations": [{"to": [{"email": recipient}]}],
@@ -194,16 +228,17 @@ def send_sync_summary(summary: dict):
 
     sender       = os.getenv("EMAIL_SENDER", "").strip()
     recipient    = os.getenv("EMAIL_RECIPIENT", "").strip()
+    resend_key   = clean_env(os.getenv("RESEND_API_KEY", ""), "RESEND_API_KEY")
+    app_password = clean_env(os.getenv("EMAIL_PASS", ""), "EMAIL_PASS")
     sendgrid_key = clean_env(os.getenv("SENDGRID_API_KEY", ""), "SENDGRID_API_KEY")
-    app_password = clean_env(os.getenv("EMAIL_APP_PASSWORD", ""), "EMAIL_APP_PASSWORD")
 
-    print(f"📧 sender={sender or 'NOT SET'}, recipient={recipient or 'NOT SET'}, sendgrid_key={'set' if sendgrid_key else 'NOT SET'}, gmail_pass={'set' if app_password else 'NOT SET'}")
+    print(f"📧 sender={sender or 'NOT SET'}, recipient={recipient or 'NOT SET'}, resend={'set' if resend_key else 'NOT SET'}, gmail_pass={'set' if app_password else 'NOT SET'}, sendgrid={'set' if sendgrid_key else 'NOT SET'}")
 
     if not sender or not recipient:
         print("⚠️  Email not configured - EMAIL_SENDER or EMAIL_RECIPIENT missing")
         return
 
-    if not sendgrid_key and not app_password:
+    if not resend_key and not app_password and not sendgrid_key:
         print("⚠️  Email not configured - skipping notification")
         return
 
@@ -301,34 +336,48 @@ def send_sync_summary(summary: dict):
 </body>
 </html>"""
 
-    # Try Gmail SMTP first
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"]    = sender
+    msg["To"]      = recipient
+    msg.attach(MIMEText(html_body, "html"))
+
+    # 1. Try Resend first (best for Railway — no DMARC issues, no port blocking)
+    if resend_key:
+        try:
+            print("📧 Sending via Resend...")
+            _send_via_resend(recipient, subject, html_body, resend_key)
+            print(f"✅ Summary email sent via Resend to {recipient}")
+            return
+        except Exception as e:
+            print(f"⚠️  Resend failed: {e}, trying Gmail SMTP...")
+
+    # 2. Try Gmail SMTP (works locally, blocked on Railway)
     if app_password:
         try:
             print("📧 Sending via Gmail SMTP...")
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = subject
-            msg["From"]    = sender
-            msg["To"]      = recipient
-            msg.attach(MIMEText(html_body, "html"))
-            with smtplib.SMTP("smtp.gmail.com", 587) as server:
-                server.ehlo()
-                server.starttls()
-                server.ehlo()
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
                 server.login(sender, app_password)
                 server.sendmail(sender, recipient, msg.as_string())
             print(f"✅ Summary email sent via Gmail SMTP to {recipient}")
             return
         except Exception as e:
-            print(f"⚠️  Gmail SMTP failed: {e}, falling back to SendGrid...")
+            print(f"⚠️  Gmail SMTP failed: {e}, trying SendGrid...")
 
-    # Fall back to SendGrid
+    # 3. Fall back to SendGrid
     if sendgrid_key:
-        print("📧 Sending via SendGrid...")
-        _send_via_sendgrid(sender, recipient, subject, html_body, sendgrid_key)
-        print(f"✅ Summary email sent via SendGrid to {recipient}")
-        return
+        try:
+            print("📧 Sending via SendGrid...")
+            _send_via_sendgrid(sender, recipient, subject, html_body, sendgrid_key)
+            print(f"✅ Summary email sent via SendGrid to {recipient}")
+            return
+        except Exception as e:
+            print(f"❌ All email methods failed. Last error: {e}")
+            import traceback
+            traceback.print_exc()
+            return
 
-    print("❌ Email failed: no working transport (Gmail SMTP and SendGrid both unavailable)")
+    print("❌ Email failed: no working transport available")
 
 
 if __name__ == "__main__":
