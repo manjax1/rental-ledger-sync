@@ -301,39 +301,34 @@ def send_sync_summary(summary: dict):
 </body>
 </html>"""
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"]    = sender
-    msg["To"]      = recipient
-    msg.attach(MIMEText(html_body, "html"))
-
-    max_retries = 3
-    retry_delay = 30
-    last_error  = None
-
-    for attempt in range(1, max_retries + 1):
+    # Try Gmail SMTP first
+    if app_password:
         try:
-            if sendgrid_key:
-                print(f"📧 Sending via SendGrid...")
-                _send_via_sendgrid(sender, recipient, subject, html_body, sendgrid_key)
-            else:
-                print(f"📧 Sending via Gmail SMTP...")
-                with smtplib.SMTP("smtp.gmail.com", 587) as server:
-                    server.ehlo()
-                    server.starttls()
-                    server.ehlo()
-                    server.login(sender, app_password)
-                    server.sendmail(sender, recipient, msg.as_string())
-            print(f"✅ Summary email sent to {recipient}")
+            print("📧 Sending via Gmail SMTP...")
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"]    = sender
+            msg["To"]      = recipient
+            msg.attach(MIMEText(html_body, "html"))
+            with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+                server.login(sender, app_password)
+                server.sendmail(sender, recipient, msg.as_string())
+            print(f"✅ Summary email sent via Gmail SMTP to {recipient}")
             return
         except Exception as e:
-            last_error = e
-            if attempt < max_retries:
-                print(f"⚠️  Email attempt {attempt} failed: {e}")
-                print(f"   Retrying in {retry_delay} seconds...")
-                time.sleep(retry_delay)
+            print(f"⚠️  Gmail SMTP failed: {e}, falling back to SendGrid...")
 
-    print(f"❌ Email failed after {max_retries} attempts: {last_error}")
+    # Fall back to SendGrid
+    if sendgrid_key:
+        print("📧 Sending via SendGrid...")
+        _send_via_sendgrid(sender, recipient, subject, html_body, sendgrid_key)
+        print(f"✅ Summary email sent via SendGrid to {recipient}")
+        return
+
+    print("❌ Email failed: no working transport (Gmail SMTP and SendGrid both unavailable)")
 
 
 if __name__ == "__main__":
